@@ -26,6 +26,24 @@
     --border: #e4e1da;
     --border-soft: #eeebe4;
 
+    /* One pair per expense category — the `-light` tone is the badge/bar
+       background, the solid tone is its text and bar fill. Kept muted to sit
+       beside the paper palette rather than shout over it. */
+    --cat-food: #b8722a;
+    --cat-food-light: #fbeedd;
+    --cat-transport: #2f7a70;
+    --cat-transport-light: #dcefec;
+    --cat-bills: #7d5a8f;
+    --cat-bills-light: #f0e8f4;
+    --cat-health: #3f8b64;
+    --cat-health-light: #d9f0e3;
+    --cat-entertainment: #b0526b;
+    --cat-entertainment-light: #fae7ec;
+    --cat-shopping: #4a6fa5;
+    --cat-shopping-light: #e7eef8;
+    --cat-other: #6b6b6b;
+    --cat-other-light: #eceae4;
+
     --font-display: 'DM Serif Display', Georgia, serif;
     --font-body: 'DM Sans', system-ui, sans-serif;
 
