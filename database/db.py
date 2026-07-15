@@ -4,7 +4,7 @@ from pathlib import Path
 
 from werkzeug.security import generate_password_hash
 
-DB_PATH = Path(__file__).resolve().parent.parent / "expense_tracker.db"
+DB_PATH = Path(__file__).resolve().parent.parent / "spendly.db"
 
 CATEGORIES = [
     "Food",
@@ -103,3 +103,21 @@ def seed_db():
 
     conn.commit()
     conn.close()
+
+
+def create_user(name, email, password):
+    """Insert a user and return the new id.
+
+    Raises sqlite3.IntegrityError if the email is already registered — the
+    UNIQUE constraint on users.email is the source of truth.
+    """
+    conn = get_db()
+    try:
+        cursor = conn.execute(
+            "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+            (name, email, generate_password_hash(password)),
+        )
+        conn.commit()
+        return cursor.lastrowid
+    finally:
+        conn.close()
