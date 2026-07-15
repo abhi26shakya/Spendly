@@ -105,6 +105,17 @@ def seed_db():
     conn.close()
 
 
+def get_user_by_email(email):
+    """Return the user row for an email, or None if nobody has it."""
+    conn = get_db()
+    try:
+        return conn.execute(
+            "SELECT * FROM users WHERE email = ?", (email,)
+        ).fetchone()
+    finally:
+        conn.close()
+
+
 def create_user(name, email, password):
     """Insert a user and return the new id.
 
