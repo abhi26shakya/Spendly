@@ -1,5 +1,105 @@
-# Students will write this file in Step 1 — Database Setup
-# This file should contain:
-#   get_db()   — returns a SQLite connection with row_factory and foreign keys enabled
-#   init_db()  — creates all tables using CREATE TABLE IF NOT EXISTS
-#   seed_db()  — inserts sample data for development
+import sqlite3
+from datetime import date
+from pathlib import Path
+
+from werkzeug.security import generate_password_hash
+
+DB_PATH = Path(__file__).resolve().parent.parent / "expense_tracker.db"
+
+CATEGORIES = [
+    "Food",
+    "Transport",
+    "Bills",
+    "Health",
+    "Entertainment",
+    "Shopping",
+    "Other",
+]
+
+
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    # Per-connection setting — SQLite defaults it off on every new connection.
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
+def init_db():
+    conn = get_db()
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            name          TEXT NOT NULL,
+            email         TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS expenses (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id     INTEGER NOT NULL REFERENCES users(id),
+            amount      REAL NOT NULL,
+            category    TEXT NOT NULL,
+            date        TEXT NOT NULL,
+            description TEXT,
+            created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+        """
+    )
+    conn.commit()
+    conn.close()
+
+
+def _seed_dates(count):
+    """Spread `count` dates over the current month, from the 1st up to today."""
+    today = date.today()
+    span = today.day - 1
+    return [
+        today.replace(day=1 + round(i * span / (count - 1))).isoformat()
+        for i in range(count)
+    ]
+
+
+def seed_db():
+    conn = get_db()
+
+    if conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] > 0:
+        conn.close()
+        return
+
+    cursor = conn.execute(
+        "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+        ("Demo User", "demo@spendly.com", generate_password_hash("demo123")),
+    )
+    user_id = cursor.lastrowid
+
+    samples = [
+        (42.50, "Food", "Groceries for the week"),
+        (18.00, "Transport", "Metro card top-up"),
+        (95.20, "Bills", "Electricity bill"),
+        (30.00, "Health", "Pharmacy — cold medicine"),
+        (14.99, "Entertainment", "Movie ticket"),
+        (79.00, "Shopping", "Running shoes"),
+        (25.00, "Other", "Gift for a friend"),
+        (11.75, "Food", "Lunch at the cafe"),
+    ]
+    dates = _seed_dates(len(samples))
+
+    conn.executemany(
+        """
+        INSERT INTO expenses (user_id, amount, category, date, description)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        [
+            (user_id, amount, category, day, description)
+            for (amount, category, description), day in zip(samples, dates)
+        ],
+    )
+
+    conn.commit()
+    conn.close()
