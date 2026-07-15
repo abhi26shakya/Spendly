@@ -48,7 +48,9 @@ a freshly-created `expense_tracker.db` instead.
     CLAUDE.md requires `url_for` for internal routes, never hardcoded paths.
   - Repopulate `name` and `email` inputs with `{{ name }}` / `{{ email }}` on a
     validation failure so a rejected submission does not clear the whole form.
-    Never repopulate the password field.
+    Never repopulate either password field.
+  - Add a `confirm_password` field below `password`, same `.form-group` /
+    `.form-input` markup.
 
 No CSS work. `.auth-error`, `.form-group`, `.form-input`, `.btn-submit`, and
 `.auth-switch` are all already defined in `static/css/style.css` (lines
@@ -104,10 +106,17 @@ None.
 | email | required, stripped, lowercased, contains `@` | "Please enter a valid email address." |
 | email | not already registered | "That email is already registered." |
 | password | required, at least 8 characters | "Password must be at least 8 characters." |
+| confirm_password | required, must equal `password` | "Those passwords do not match." |
 
 Store email lowercased and stripped so `Nitish@Example.com` and
 `nitish@example.com` cannot become two accounts. The 8-character minimum matches
 the placeholder text the form already shows.
+
+Check the rules in the order listed. The length rule fires before the match rule
+so a short password reports its own problem, rather than making the user fix a
+mismatch and only then discover the length limit. The match is enforced
+server-side, not just via the HTML `required` attribute — a POST that omits
+`confirm_password` entirely must still be rejected.
 
 ## Definition of done
 
@@ -124,6 +133,8 @@ the placeholder text the form already shows.
       email is already registered." and creates no new row
 - [ ] Submitting a blank name, a malformed email, or a 7-character password
       re-renders the form with the matching error and creates no new row
+- [ ] Two different passwords re-render with "Those passwords do not match." and
+      create no new row; a POST omitting `confirm_password` is rejected too
 - [ ] After a failed submit the name and email fields retain what was typed and
-      the password field is empty
+      both password fields are empty
 - [ ] `demo@spendly.com` / `demo123` still exists and is untouched
