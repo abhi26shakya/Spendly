@@ -52,9 +52,9 @@ blueprints. Routes split in two — those rendering real templates (`/`,
 string like `"Profile page — coming in Step 4"`.
 
 **This is a teaching scaffold.** The placeholder strings are a guided build, and
-the "Step N" numbers are the curriculum's ordering. Steps 1 (database layer) and
-2 (registration) are implemented; still stubbed are Step 3 logout, Step 4
-profile, and Steps 7–9 expense create/edit/delete. Keep SQL in `database/`
+the "Step N" numbers are the curriculum's ordering. Steps 1 (database layer), 2
+(registration), and 3 (login/logout) are implemented; still stubbed are Step 4
+profile and Steps 7–9 expense create/edit/delete. Keep SQL in `database/`
 instead of inlining it into route handlers, and use no ORM — that separation is
 the point of the exercise.
 
@@ -64,10 +64,16 @@ the point of the exercise.
 user and 8 expenses, early-returns if `users` is non-empty), and `create_user()`.
 `app.py` calls `init_db()` and `seed_db()` at import inside `app.app_context()`.
 
-Auth is session-based, no extension: `/register` sets `session["user_id"]`, and
-`app.secret_key` comes from `os.environ.get("SECRET_KEY", <dev fallback>)` — so
-it runs with no setup, but a real deployment must set the variable. Nothing reads
-the session yet — login and logout are Step 3. Duplicate emails are caught
+Auth is session-based, no extension: `/register` and `/login` set
+`session["user_id"]`, `/logout` calls `session.clear()`, and `app.secret_key`
+comes from `os.environ.get("SECRET_KEY", <dev fallback>)` — so it runs with no
+setup, but a real deployment must set the variable. `base.html` reads
+`session["user_id"]` directly to pick the navbar links; Flask injects `session`
+into every template, so routes never pass it. No route guards login yet — the
+`/profile` placeholder renders for anyone, and locking it down is Step 4.
+`/login` gives one message ("Incorrect email or password.") for both a missing
+email and a wrong password, so the form cannot be used to test which emails have
+accounts; keep it that way. Duplicate emails are caught
 as `sqlite3.IntegrityError` off the `UNIQUE` constraint rather than a prior
 `SELECT`, keeping the database the source of truth; emails are stored stripped
 and lowercased. Hash with `werkzeug.security`, and use parameterised SQL only.
