@@ -249,20 +249,45 @@
     .profile-bar-shopping { background: var(--cat-shopping); }
     .profile-bar-other { background: var(--cat-other); }
 
-    /* Widths are classes rather than inline styles because this step's data is
-       hardcoded. Step 5 makes them dynamic and will need a different approach. */
-    .profile-bar-w100 { width: 100%; }
-    .profile-bar-w85 { width: 85%; }
-    .profile-bar-w55 { width: 55%; }
-    .profile-bar-w30 { width: 30%; }
-    .profile-bar-w25 { width: 25%; }
-    .profile-bar-w20 { width: 20%; }
+    /* Widths stay classes rather than inline styles — no inline styles anywhere.
+       The view rounds each bar to the nearest 5, so the ladder has to cover
+       every step from 0 to 100; a width with no matching rule collapses the
+       bar to nothing. */
+    .profile-bar-w0 { width: 0; }
+    .profile-bar-w5 { width: 5%; }
+    .profile-bar-w10 { width: 10%; }
     .profile-bar-w15 { width: 15%; }
+    .profile-bar-w20 { width: 20%; }
+    .profile-bar-w25 { width: 25%; }
+    .profile-bar-w30 { width: 30%; }
+    .profile-bar-w35 { width: 35%; }
+    .profile-bar-w40 { width: 40%; }
+    .profile-bar-w45 { width: 45%; }
+    .profile-bar-w50 { width: 50%; }
+    .profile-bar-w55 { width: 55%; }
+    .profile-bar-w60 { width: 60%; }
+    .profile-bar-w65 { width: 65%; }
+    .profile-bar-w70 { width: 70%; }
+    .profile-bar-w75 { width: 75%; }
+    .profile-bar-w80 { width: 80%; }
+    .profile-bar-w85 { width: 85%; }
+    .profile-bar-w90 { width: 90%; }
+    .profile-bar-w95 { width: 95%; }
+    .profile-bar-w100 { width: 100%; }
 
     .profile-cat-share {
         font-size: 0.8rem;
         color: var(--ink-faint);
         margin-top: 0.3rem;
+    }
+
+    /* Shown to a user who has not recorded an expense yet — without it both
+       panels render as a bare header. */
+    .profile-empty {
+        color: var(--ink-faint);
+        font-size: 0.9rem;
+        padding: 1.5rem 0;
+        text-align: center;
     }
 
     /* --- Narrow screens ------------------------------------------- */
@@ -349,6 +374,10 @@
                                 </td>
                                 <td class="profile-amount">₹{{ "%.2f"|format(expense.amount) }}</td>
                             </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="profile-empty">No expenses yet.</td>
+                            </tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -372,6 +401,8 @@
                         </div>
                         <div class="profile-cat-share">{{ category.share }}% of total</div>
                     </div>
+                    {% else %}
+                    <p class="profile-empty">No expenses yet.</p>
                     {% endfor %}
                 </div>
             </div>
