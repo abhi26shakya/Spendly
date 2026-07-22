@@ -106,6 +106,98 @@
         font-variant-numeric: tabular-nums;
     }
 
+    /* --- Date filter ---------------------------------------------- */
+
+    .profile-filter {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        background: var(--paper-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .profile-presets {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+    }
+
+    .profile-preset {
+        padding: 0.4rem 0.85rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 0.85rem;
+        color: var(--ink-muted);
+        transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+
+    .profile-preset:hover {
+        background: var(--paper-warm);
+        color: var(--ink);
+    }
+
+    .profile-preset.is-active {
+        background: var(--accent-light);
+        border-color: var(--accent);
+        color: var(--accent);
+        font-weight: 500;
+    }
+
+    .profile-custom {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .profile-custom label {
+        font-size: 0.8rem;
+        color: var(--ink-faint);
+    }
+
+    .profile-date-input {
+        font-family: var(--font-body);
+        font-size: 0.85rem;
+        color: var(--ink);
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 0.35rem 0.5rem;
+    }
+
+    .profile-date-input:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
+
+    .profile-custom .btn-primary {
+        padding: 0.4rem 1rem;
+        font-size: 0.85rem;
+    }
+
+    .profile-range-note {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-bottom: 1.5rem;
+        font-size: 0.85rem;
+        color: var(--ink-faint);
+    }
+
+    .profile-filter-error {
+        background: var(--danger-light);
+        color: var(--danger);
+        border-radius: var(--radius-sm);
+        padding: 0.65rem 0.9rem;
+        margin-bottom: 1rem;
+        font-size: 0.85rem;
+    }
+
     /* --- Two-column body ------------------------------------------ */
 
     .profile-grid {
@@ -301,6 +393,8 @@
         .profile-stats { grid-template-columns: 1fr; }
         .profile-user { flex-direction: column; text-align: center; gap: 1rem; }
         .profile-member { justify-content: center; }
+        .profile-filter { flex-direction: column; align-items: stretch; }
+        .profile-custom { justify-content: space-between; }
     }
 </style>
 {% endblock %}
@@ -345,6 +439,38 @@
             </div>
         </div>
 
+        {% if date_filter.error %}
+        <div class="profile-filter-error">{{ date_filter.error }}</div>
+        {% endif %}
+
+        <div class="profile-filter">
+            <div class="profile-presets">
+                <a href="{{ url_for('profile', range='month') }}"
+                   class="profile-preset{% if date_filter.preset == 'month' %} is-active{% endif %}">This month</a>
+                <a href="{{ url_for('profile', range='30d') }}"
+                   class="profile-preset{% if date_filter.preset == '30d' %} is-active{% endif %}">Last 30 days</a>
+                <a href="{{ url_for('profile', range='year') }}"
+                   class="profile-preset{% if date_filter.preset == 'year' %} is-active{% endif %}">This year</a>
+                <a href="{{ url_for('profile', range='all') }}"
+                   class="profile-preset{% if date_filter.preset == 'all' %} is-active{% endif %}">All time</a>
+            </div>
+
+            <form class="profile-custom" method="get" action="{{ url_for('profile') }}">
+                <label for="filter-start">From</label>
+                <input type="date" id="filter-start" name="start" class="profile-date-input"
+                       value="{{ date_filter.start or '' }}">
+                <label for="filter-end">To</label>
+                <input type="date" id="filter-end" name="end" class="profile-date-input"
+                       value="{{ date_filter.end or '' }}">
+                <button type="submit" class="btn-primary">Apply</button>
+            </form>
+        </div>
+
+        <p class="profile-range-note">
+            <i data-lucide="calendar-range"></i>
+            Showing {{ date_filter.label }}
+        </p>
+
         <div class="profile-grid">
 
             <div class="profile-card">
@@ -376,7 +502,7 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="4" class="profile-empty">No expenses yet.</td>
+                                <td colspan="4" class="profile-empty">{{ empty_message }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -402,7 +528,7 @@
                         <div class="profile-cat-share">{{ category.share }}% of total</div>
                     </div>
                     {% else %}
-                    <p class="profile-empty">No expenses yet.</p>
+                    <p class="profile-empty">{{ empty_message }}</p>
                     {% endfor %}
                 </div>
             </div>
