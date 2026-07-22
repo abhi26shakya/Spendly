@@ -5,6 +5,12 @@ from flask import Flask, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash
 
 from database.db import create_user, get_db, get_user_by_email, init_db, seed_db
+from database.queries import (
+    get_category_breakdown,
+    get_recent_transactions,
+    get_summary_stats,
+    get_user_by_id,
+)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-only-not-for-production")
@@ -89,58 +95,63 @@ def privacy():
     return render_template("privacy.html")
 
 
-# Step 4 builds the profile UI against hardcoded data; Step 5 swaps these three
-# constants for real queries. They mirror the demo user seeded by seed_db(), so
-# the page should look near-identical once it is reading from the database.
-_PROFILE_USER = {
-    "name": "Demo User",
-    "email": "demo@spendly.com",
-    "initials": "DU",
-    "member_since": "July 2026",
-}
+def _initials(name):
+    """First and last initials of a name — "Demo User" becomes "DU"."""
+    parts = name.split()
+    if not parts:
+        return "?"
+    return (parts[0][0] + parts[-1][0]).upper() if len(parts) > 1 else parts[0][0].upper()
 
-_PROFILE_STATS = {
-    "total": 316.44,
-    "count": 8,
-    "top_category": "Bills",
-}
 
-_PROFILE_EXPENSES = [
-    {"date": "16 Jul", "description": "Lunch at the cafe", "category": "Food", "amount": 11.75},
-    {"date": "13 Jul", "description": "Gift for a friend", "category": "Other", "amount": 25.00},
-    {"date": "11 Jul", "description": "Running shoes", "category": "Shopping", "amount": 79.00},
-    {"date": "09 Jul", "description": "Movie ticket", "category": "Entertainment", "amount": 14.99},
-    {"date": "06 Jul", "description": "Pharmacy — cold medicine", "category": "Health", "amount": 30.00},
-    {"date": "04 Jul", "description": "Electricity bill", "category": "Bills", "amount": 95.20},
-    {"date": "02 Jul", "description": "Metro card top-up", "category": "Transport", "amount": 18.00},
-    {"date": "01 Jul", "description": "Groceries for the week", "category": "Food", "amount": 42.50},
-]
+def _to_view_categories(breakdown):
+    """Adapt get_category_breakdown() rows to what profile.html renders.
 
-# `share` is the category's percentage of total spend — the number shown to the
-# reader. `width` scales the bar against the largest category instead, rounded
-# to the nearest 5 so it can be a CSS class rather than an inline style.
-_PROFILE_CATEGORIES = [
-    {"name": "Bills", "slug": "bills", "total": 95.20, "share": 30, "width": 100},
-    {"name": "Shopping", "slug": "shopping", "total": 79.00, "share": 25, "width": 85},
-    {"name": "Food", "slug": "food", "total": 54.25, "share": 17, "width": 55},
-    {"name": "Health", "slug": "health", "total": 30.00, "share": 9, "width": 30},
-    {"name": "Other", "slug": "other", "total": 25.00, "share": 8, "width": 25},
-    {"name": "Transport", "slug": "transport", "total": 18.00, "share": 6, "width": 20},
-    {"name": "Entertainment", "slug": "entertainment", "total": 14.99, "share": 5, "width": 15},
-]
+    `share` is the category's percentage of total spend — the number shown to
+    the reader. `width` scales the bar against the largest category instead,
+    rounded to the nearest 5 so it can be a CSS class rather than an inline
+    style; the template carries a rule for every step from w0 to w100.
+    """
+    if not breakdown:
+        return []
+
+    largest = breakdown[0]["amount"]
+    return [
+        {
+            "name": row["name"],
+            "slug": row["name"].lower(),
+            "total": row["amount"],
+            "share": row["pct"],
+            "width": round(row["amount"] / largest * 100 / 5) * 5 if largest else 0,
+        }
+        for row in breakdown
+    ]
 
 
 @app.route("/profile")
 def profile():
-    if not session.get("user_id"):
+    user_id = session.get("user_id")
+    if not user_id:
         return redirect(url_for("login"))
+
+    user = get_user_by_id(user_id)
+    if user is None:
+        # The session points at a user who no longer exists — treat it as
+        # signed out rather than rendering a half-empty page.
+        session.clear()
+        return redirect(url_for("login"))
+
+    stats = get_summary_stats(user_id)
 
     return render_template(
         "profile.html",
-        user=_PROFILE_USER,
-        stats=_PROFILE_STATS,
-        expenses=_PROFILE_EXPENSES,
-        categories=_PROFILE_CATEGORIES,
+        user={**user, "initials": _initials(user["name"])},
+        stats={
+            "total": stats["total_spent"],
+            "count": stats["transaction_count"],
+            "top_category": stats["top_category"],
+        },
+        expenses=get_recent_transactions(user_id),
+        categories=_to_view_categories(get_category_breakdown(user_id)),
     )
 
 
