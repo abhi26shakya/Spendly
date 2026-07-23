@@ -181,3 +181,23 @@ def update_expense(expense_id, user_id, amount, category, expense_date, descript
         return cursor.rowcount
     finally:
         conn.close()
+
+
+def delete_expense(expense_id, user_id):
+    """Remove one expense and return how many rows were deleted.
+
+    `user_id` narrows the DELETE rather than being checked in Python first — a
+    row that does not exist and a row belonging to someone else are the same
+    case here: nothing matches, nothing is removed and the return value is 0.
+    The row is really gone; there is no archived copy to restore from.
+    """
+    conn = get_db()
+    try:
+        cursor = conn.execute(
+            "DELETE FROM expenses WHERE id = ? AND user_id = ?",
+            (expense_id, user_id),
+        )
+        conn.commit()
+        return cursor.rowcount
+    finally:
+        conn.close()

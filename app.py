@@ -17,6 +17,9 @@ from database.db import (
     CATEGORIES,
     create_expense,
     create_user,
+    # Aliased because the route function below owns the plain name — the same
+    # split edit_expense/update_expense get from being named differently.
+    delete_expense as delete_expense_row,
     get_db,
     get_user_by_email,
     init_db,
@@ -449,14 +452,25 @@ def edit_expense(id):
     return _render_expense_form("edit", values, error=error, expense_id=id)
 
 
-# ------------------------------------------------------------------ #
-# Placeholder routes — students will implement these                  #
-# ------------------------------------------------------------------ #
-
-
-@app.route("/expenses/<int:id>/delete")
+# POST only, and deliberately so: a delete reachable by following a link can be
+# fired by a browser prefetch, a crawler or an <img src> on another site, none
+# of which involve the user deciding anything. A GET here is a 405.
+@app.route("/expenses/<int:id>/delete", methods=["POST"])
 def delete_expense(id):
-    return "Delete expense — coming in Step 9"
+    # Guard before touching the database, so an anonymous POST never deletes.
+    user_id = session.get("user_id")
+    if not user_id:
+        return redirect(url_for("login"))
+
+    # Ownership lives in the DELETE's WHERE clause, so a row belonging to
+    # someone else simply matches nothing. Missing and not-yours give the same
+    # 404 on purpose — a 403 for "not yours" would confirm the id is real.
+    if delete_expense_row(id, user_id) == 0:
+        abort(404)
+
+    # Redirect rather than render, so a refresh re-requests the profile page
+    # instead of re-posting the delete.
+    return redirect(url_for("profile"))
 
 
 if __name__ == "__main__":
