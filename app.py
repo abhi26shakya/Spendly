@@ -2,7 +2,15 @@ import os
 import sqlite3
 from datetime import date, timedelta
 
-from flask import Flask, redirect, render_template, request, session, url_for
+from flask import (
+    Flask,
+    abort,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from werkzeug.security import check_password_hash
 
 from database.db import (
@@ -13,9 +21,11 @@ from database.db import (
     get_user_by_email,
     init_db,
     seed_db,
+    update_expense,
 )
 from database.queries import (
     get_category_breakdown,
+    get_expense_by_id,
     get_recent_transactions,
     get_summary_stats,
     get_user_by_id,
@@ -328,6 +338,40 @@ def _validate_expense(form):
     return values, None
 
 
+def _render_expense_form(mode, values, error=None, expense_id=None):
+    """Render expense_form.html for whichever of the two routes is calling.
+
+    Add and edit submit the same fields to the same validator, so the only
+    differences are the wording and where the form posts — everything else is
+    identical and lives here rather than in four near-identical
+    render_template() calls.
+    """
+    if mode == "edit":
+        labels = {
+            "heading": "Edit expense",
+            "subtitle": "Update what you spent and where it went",
+            "submit_label": "Save changes",
+            "form_action": url_for("edit_expense", id=expense_id),
+        }
+    else:
+        labels = {
+            "heading": "Add an expense",
+            "subtitle": "Record what you spent and where it went",
+            "submit_label": "Add expense",
+            "form_action": url_for("add_expense"),
+        }
+
+    return render_template(
+        "expense_form.html",
+        categories=CATEGORIES,
+        values=values,
+        error=error,
+        today=date.today().isoformat(),
+        description_max=DESCRIPTION_MAX,
+        **labels,
+    )
+
+
 @app.route("/expenses/add", methods=["GET", "POST"])
 def add_expense():
     # Guard before reading the form, so an anonymous POST never reaches the
@@ -336,16 +380,8 @@ def add_expense():
     if not user_id:
         return redirect(url_for("login"))
 
-    today = date.today().isoformat()
-
     if request.method == "GET":
-        return render_template(
-            "expense_form.html",
-            categories=CATEGORIES,
-            values={"date": today},
-            today=today,
-            description_max=DESCRIPTION_MAX,
-        )
+        return _render_expense_form("add", {"date": date.today().isoformat()})
 
     values, error = _validate_expense(request.form)
 
@@ -362,24 +398,60 @@ def add_expense():
         # Redirect rather than render, so a refresh cannot insert twice.
         return redirect(url_for("profile"))
 
-    return render_template(
-        "expense_form.html",
-        categories=CATEGORIES,
-        values=values,
-        today=today,
-        error=error,
-        description_max=DESCRIPTION_MAX,
-    )
+    return _render_expense_form("add", values, error=error)
+
+
+@app.route("/expenses/<int:id>/edit", methods=["GET", "POST"])
+def edit_expense(id):
+    # Guard before reading the form, so an anonymous POST never reaches the
+    # database.
+    user_id = session.get("user_id")
+    if not user_id:
+        return redirect(url_for("login"))
+
+    # Scoped to the session's user, so someone else's expense simply does not
+    # exist here. Both cases 404 on purpose: a 403 for "not yours" would
+    # confirm the id is real and turn this URL into a way to count another
+    # account's expenses.
+    expense = get_expense_by_id(id, user_id)
+    if expense is None:
+        abort(404)
+
+    if request.method == "GET":
+        return _render_expense_form(
+            "edit",
+            {
+                # Formatted so the field reads 42.50 rather than 42.5.
+                "amount": f"{expense['amount']:.2f}",
+                "category": expense["category"],
+                "date": expense["date"],
+                "description": expense["description"],
+            },
+            expense_id=id,
+        )
+
+    values, error = _validate_expense(request.form)
+
+    if error is None:
+        # user_id is passed again so the UPDATE re-checks ownership itself —
+        # the GET-time fetch says nothing about who is submitting this POST.
+        update_expense(
+            id,
+            user_id,
+            values["amount"],
+            values["category"],
+            values["date"],
+            values["description"],
+        )
+        # Redirect rather than render, so a refresh cannot re-apply the edit.
+        return redirect(url_for("profile"))
+
+    return _render_expense_form("edit", values, error=error, expense_id=id)
 
 
 # ------------------------------------------------------------------ #
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
-
-
-@app.route("/expenses/<int:id>/edit")
-def edit_expense(id):
-    return "Edit expense — coming in Step 8"
 
 
 @app.route("/expenses/<int:id>/delete")
