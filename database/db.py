@@ -132,3 +132,26 @@ def create_user(name, email, password):
         return cursor.lastrowid
     finally:
         conn.close()
+
+
+def create_expense(user_id, amount, category, expense_date, description):
+    """Insert an expense and return the new id.
+
+    `expense_date` is ISO YYYY-MM-DD text — the format the range filters
+    compare against. It is not named `date` because that would shadow the
+    datetime class this module imports. `description` may be empty; the column
+    is nullable. `created_at` is left to the column default.
+    """
+    conn = get_db()
+    try:
+        cursor = conn.execute(
+            """
+            INSERT INTO expenses (user_id, amount, category, date, description)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (user_id, amount, category, expense_date, description),
+        )
+        conn.commit()
+        return cursor.lastrowid
+    finally:
+        conn.close()

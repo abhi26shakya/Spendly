@@ -5,7 +5,15 @@ from datetime import date, timedelta
 from flask import Flask, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash
 
-from database.db import create_user, get_db, get_user_by_email, init_db, seed_db
+from database.db import (
+    CATEGORIES,
+    create_expense,
+    create_user,
+    get_db,
+    get_user_by_email,
+    init_db,
+    seed_db,
+)
 from database.queries import (
     get_category_breakdown,
     get_recent_transactions,
@@ -261,13 +269,112 @@ def analytics():
     return render_template("analytics.html")
 
 
+# Nothing in the schema bounds the description, so the limit is set here — a
+# form field should not accept an unbounded string from an anonymous POST body.
+DESCRIPTION_MAX = 500
+
+
+def _validate_expense(form):
+    """Check a submitted expense form.
+
+    Returns (values, error). `values` is what the template re-fills the fields
+    with, so a rejected form never loses what the user typed — amount and date
+    stay as the raw strings they submitted. `error` is None when everything
+    passed, and the amount in `values` is then a float rounded to 2 decimals,
+    ready to store.
+
+    The HTML input types are a convenience, not a guarantee: anything can POST
+    here, so every field is checked again on this side.
+    """
+    amount_raw = form.get("amount", "").strip()
+    category = form.get("category", "").strip()
+    date_raw = form.get("date", "").strip()
+    description = form.get("description", "").strip()
+
+    values = {
+        "amount": amount_raw,
+        "category": category,
+        "date": date_raw,
+        "description": description,
+    }
+
+    try:
+        amount = float(amount_raw)
+    except ValueError:
+        return values, "Please enter a valid amount."
+
+    if amount <= 0:
+        return values, "Amount must be greater than zero."
+
+    if category not in CATEGORIES:
+        return values, "Please choose a valid category."
+
+    try:
+        day = date.fromisoformat(date_raw)
+    except ValueError:
+        return values, "Please enter a valid date."
+
+    if day > date.today():
+        return values, "Date cannot be in the future."
+
+    # The description is optional and free text, so the only thing to check is
+    # its size. Rejecting rather than silently truncating — a form that quietly
+    # eats half of what was typed is worse than one that says why.
+    if len(description) > DESCRIPTION_MAX:
+        return values, f"Description must be {DESCRIPTION_MAX} characters or fewer."
+
+    # Store the rounded amount so the ₹ display and the stored REAL agree.
+    values["amount"] = round(amount, 2)
+    return values, None
+
+
+@app.route("/expenses/add", methods=["GET", "POST"])
+def add_expense():
+    # Guard before reading the form, so an anonymous POST never reaches the
+    # database.
+    user_id = session.get("user_id")
+    if not user_id:
+        return redirect(url_for("login"))
+
+    today = date.today().isoformat()
+
+    if request.method == "GET":
+        return render_template(
+            "expense_form.html",
+            categories=CATEGORIES,
+            values={"date": today},
+            today=today,
+            description_max=DESCRIPTION_MAX,
+        )
+
+    values, error = _validate_expense(request.form)
+
+    if error is None:
+        # user_id comes from the session — a user_id field in the form is
+        # never read, so nobody can file an expense against another account.
+        create_expense(
+            user_id,
+            values["amount"],
+            values["category"],
+            values["date"],
+            values["description"],
+        )
+        # Redirect rather than render, so a refresh cannot insert twice.
+        return redirect(url_for("profile"))
+
+    return render_template(
+        "expense_form.html",
+        categories=CATEGORIES,
+        values=values,
+        today=today,
+        error=error,
+        description_max=DESCRIPTION_MAX,
+    )
+
+
 # ------------------------------------------------------------------ #
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
-
-@app.route("/expenses/add")
-def add_expense():
-    return "Add expense — coming in Step 7"
 
 
 @app.route("/expenses/<int:id>/edit")
