@@ -57,6 +57,44 @@ def get_user_by_id(user_id):
     }
 
 
+def get_expense_by_id(expense_id, user_id):
+    """Return one expense owned by a user, or None.
+
+    `user_id` is required and narrows the query itself, so a row belonging to
+    somebody else is indistinguishable from one that does not exist — the
+    caller cannot accidentally leak the difference by checking ownership after
+    the fetch.
+
+    The date comes back as raw ISO YYYY-MM-DD rather than the "16 Jul" that
+    get_recent_transactions() formats, because the caller is the edit form and
+    <input type="date"> only populates from the ISO form.
+    """
+    conn = get_db()
+    try:
+        row = conn.execute(
+            """
+            SELECT id, amount, category, date, description
+            FROM expenses
+            WHERE id = ? AND user_id = ?
+            """,
+            (expense_id, user_id),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if row is None:
+        return None
+
+    return {
+        "id": row["id"],
+        "amount": float(row["amount"]),
+        "category": row["category"],
+        "date": row["date"],
+        # The column is nullable; the form wants a string either way.
+        "description": row["description"] or "",
+    }
+
+
 def get_summary_stats(user_id, start=None, end=None):
     """Return total spent, transaction count and top category for one user.
 
@@ -112,10 +150,11 @@ def get_summary_stats(user_id, start=None, end=None):
 def get_recent_transactions(user_id, limit=10, start=None, end=None):
     """Return a user's most recent expenses, newest first.
 
-    Each item is a plain dict with "date" (formatted "16 Jul"), "description",
-    "category" and "amount". `start` and `end` are optional inclusive ISO date
-    bounds. Returns [] when nothing matches. The `limit` still applies inside a
-    range, so this is the newest few of the range, not all of it.
+    Each item is a plain dict with "id", "date" (formatted "16 Jul"),
+    "description", "category" and "amount". `start` and `end` are optional
+    inclusive ISO date bounds. Returns [] when nothing matches. The `limit`
+    still applies inside a range, so this is the newest few of the range, not
+    all of it.
     """
     date_filter, date_params = _range_clause(start, end)
 
@@ -123,7 +162,7 @@ def get_recent_transactions(user_id, limit=10, start=None, end=None):
     try:
         rows = conn.execute(
             f"""
-            SELECT date, description, category, amount
+            SELECT id, date, description, category, amount
             FROM expenses
             WHERE user_id = ?
             {date_filter}
@@ -137,6 +176,8 @@ def get_recent_transactions(user_id, limit=10, start=None, end=None):
 
     return [
         {
+            # The id is what the profile table builds its edit link from.
+            "id": row["id"],
             "date": datetime.strptime(row["date"], "%Y-%m-%d").strftime("%d %b"),
             "description": row["description"],
             "category": row["category"],

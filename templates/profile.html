@@ -294,6 +294,33 @@
         font-variant-numeric: tabular-nums;
     }
 
+    /* The edit action sits quietly until the row is hovered. It stays faintly
+       visible rather than going to opacity 0, so it is still findable on a
+       touch screen, where there is no hover at all. */
+    .profile-table-actions {
+        width: 1%;
+        text-align: right;
+    }
+
+    .profile-edit {
+        display: inline-flex;
+        color: var(--ink-faint);
+        opacity: 0.5;
+        transition: color 0.2s, opacity 0.2s;
+    }
+
+    .profile-edit i,
+    .profile-edit svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    .profile-table tbody tr:hover .profile-edit,
+    .profile-edit:focus-visible {
+        color: var(--accent);
+        opacity: 1;
+    }
+
     /* --- Category badges ------------------------------------------ */
 
     .profile-badge {
@@ -509,6 +536,9 @@
                                 <th>Description</th>
                                 <th>Category</th>
                                 <th class="profile-amount">Amount</th>
+                                {# The action column needs no visible heading;
+                                   each link names itself for screen readers. #}
+                                <th class="profile-table-actions"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -522,10 +552,17 @@
                                     </span>
                                 </td>
                                 <td class="profile-amount">₹{{ "%.2f"|format(expense.amount) }}</td>
+                                <td class="profile-table-actions">
+                                    <a href="{{ url_for('edit_expense', id=expense.id) }}"
+                                       class="profile-edit"
+                                       aria-label="Edit {{ expense.description or expense.category }}">
+                                        <i data-lucide="pencil"></i>
+                                    </a>
+                                </td>
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="4" class="profile-empty">
+                                <td colspan="5" class="profile-empty">
                                     {{ empty_message }}
                                     {# An empty range is a filter to widen; an empty
                                        history is an invitation into the form. #}

@@ -155,3 +155,29 @@ def create_expense(user_id, amount, category, expense_date, description):
         return cursor.lastrowid
     finally:
         conn.close()
+
+
+def update_expense(expense_id, user_id, amount, category, expense_date, description):
+    """Overwrite one expense and return how many rows changed.
+
+    `user_id` narrows the UPDATE rather than being written by it — an expense
+    never changes owner, so it belongs in the WHERE clause. A row that does not
+    exist and a row belonging to someone else are the same case here: nothing
+    matches, nothing is written and the return value is 0. `created_at` records
+    when the expense was filed, not when it was last touched, so it is left
+    alone.
+    """
+    conn = get_db()
+    try:
+        cursor = conn.execute(
+            """
+            UPDATE expenses
+            SET amount = ?, category = ?, date = ?, description = ?
+            WHERE id = ? AND user_id = ?
+            """,
+            (amount, category, expense_date, description, expense_id, user_id),
+        )
+        conn.commit()
+        return cursor.rowcount
+    finally:
+        conn.close()
