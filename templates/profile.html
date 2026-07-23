@@ -224,6 +224,21 @@
         margin-bottom: 1.25rem;
     }
 
+    /* Wraps a card title and its action button — the title keeps its own
+       bottom margin, so this row carries none of its own. */
+    .profile-card-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+
+    .profile-card-head .btn-primary {
+        padding: 0.4rem 0.9rem;
+        font-size: 0.85rem;
+        margin-bottom: 1.25rem;
+    }
+
     /* --- Transaction table ---------------------------------------- */
 
     .profile-table-scroll {
@@ -382,6 +397,11 @@
         text-align: center;
     }
 
+    .profile-empty a {
+        color: var(--accent);
+        font-weight: 500;
+    }
+
     /* --- Narrow screens ------------------------------------------- */
 
     @media (max-width: 900px) {
@@ -474,10 +494,13 @@
         <div class="profile-grid">
 
             <div class="profile-card">
-                <h2 class="profile-card-title">
-                    <i data-lucide="receipt"></i>
-                    Recent activity
-                </h2>
+                <div class="profile-card-head">
+                    <h2 class="profile-card-title">
+                        <i data-lucide="receipt"></i>
+                        Recent activity
+                    </h2>
+                    <a href="{{ url_for('add_expense') }}" class="btn-primary">Add expense</a>
+                </div>
                 <div class="profile-table-scroll">
                     <table class="profile-table">
                         <thead>
@@ -502,7 +525,14 @@
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="4" class="profile-empty">{{ empty_message }}</td>
+                                <td colspan="4" class="profile-empty">
+                                    {{ empty_message }}
+                                    {# An empty range is a filter to widen; an empty
+                                       history is an invitation into the form. #}
+                                    {% if not date_filter.active %}
+                                    <a href="{{ url_for('add_expense') }}">Add your first expense</a>
+                                    {% endif %}
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
